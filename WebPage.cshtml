@@ -1,0 +1,156 @@
+﻿@{
+    var t1 = new Program();
+
+    string lwaSelected ="";
+    string MaxSMPSelected="";
+    string MinSMPSelected = "";   
+    string reportType = "LWA";
+    string chartTitle = "Load Weighted Average";
+    string axisTitle = "LWA (€/MWH)";
+    string seriesName = "LWA";
+    string fromDate = "01/01/2015";
+    string toDate = "31/01/2015";
+    string categories=" ";
+    DateTime start = DateTime.Parse("01/01/2015");
+    DateTime end = DateTime.Parse("31/01/2015");
+    List<string> dates = new List<string>();
+    List<string> series1 = new List<string>();
+    List<string> series2 = new List<string>();
+    if(Request.QueryString["Graph"]!=null){
+        reportType = Request.QueryString["Graph"];
+    try {
+        start = DateTime.Parse(Request.QueryString["fromDate"]);
+        fromDate = start.ToShortDateString();
+    }
+    catch
+    {
+        Validation.AddFormError("Start Date not in correct format");
+        fromDate = "dd/mm/yyyy";
+    }
+    try {
+        end = DateTime.Parse(Request.QueryString["toDate"]);
+        toDate = end.ToShortDateString(); 
+    }
+    catch
+    {
+        Validation.AddFormError("End Date not in correct format");
+        toDate = "dd/mm/yyyy";
+    }
+    }
+    if (start < DateTime.Parse("01/01/2010"))
+    {
+        Validation.AddFormError("Database starts on 01/01/2010");
+    }
+    if (start > end)
+    {
+        Validation.AddFormError("Start must be before end");
+    }
+    if (Validation.IsValid())
+    {
+        var con = new MarketDataDataContext();
+        if (reportType == "LWA") { 
+            var info = from lwa in con.LWAs where lwa.Date >= start where lwa.Date <= end select lwa;
+            lwaSelected = "selected"; 
+            foreach (var s in info)
+            {
+                dates.Add("'"+s.Date.ToShortDateString()+"'");
+                series1.Add(s.Lwa1.ToString());
+                series2.Add(s.SevenDayLWA.ToString());
+                categories+= "'"+s.Date.ToShortDateString()+"',"; 
+            }
+        }
+        if (reportType == "MaxSMP")
+        { 
+            chartTitle = "Maximum System Marginal Price (SMP)";
+            axisTitle = "System Marginal Price - SMP (€/MWh)";
+            seriesName = "Max SMP";
+            MaxSMPSelected = "selected"; 
+            var info = from data in con.MaxSMPs where data.Date >= start where data.Date <= end select data;
+
+            foreach (var s in info)
+            {
+                dates.Add("'" + s.Date.ToShortDateString() + "'");
+                series1.Add(s.MaxSMP1.ToString());
+                series2.Add(s.SevenDayMaxSMP.ToString());
+                categories += "'" + s.Date.ToShortDateString() + "',";
+            }
+        }
+        if (reportType == "MinSMP")
+        {
+            chartTitle = "Minimum System Marginal Price (SMP)";
+            axisTitle = "System Marginal Price - SMP (€/MWh)";
+            seriesName = "Min SMP";
+            MinSMPSelected = "selected";       
+            var info = from data in con.MinSMPs where data.Date >= start where data.Date <= end select data;
+
+            foreach (var s in info)
+            {
+                dates.Add("'" + s.Date.ToShortDateString() + "'");
+                series1.Add(s.MinSMP1.ToString());
+                series2.Add(s.SevenDayMinSMP.ToString());
+                categories += "'" + s.Date.ToShortDateString() + "',";
+            }
+        }
+        //categories = ;
+    }
+}
+<!DOCTYPE html>
+<html>
+    <head>
+        <title></title>
+        <link rel="stylesheet" href="~/Content/bootstrap.min.css" />
+        <link rel="stylesheet" href="~/Content/themes/base/datepicker.css" />
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+        <script src="http://code.highcharts.com/highcharts.js"></script>
+        <script type="text/javascript" src="~/Scripts/jquery-ui-1.11.3.js"></script>
+        <script>
+    $(function () {
+        $('#container').highcharts({
+            chart: {
+               type: 'column'
+            },
+            title: {
+                text: '@chartTitle'
+            },
+            xAxis: {
+                labels: { rotation: -45 }, 
+                categories: [@Html.Raw(string.Join(",",dates.ToArray()))]
+            },
+            yAxis: {
+                title: {
+                    text: '@axisTitle'
+                }
+            },
+            series: [{
+                name: '@seriesName',
+                data: [@string.Join(",", series1.ToArray())]
+            }, {
+                type: 'spline', name: 'Seven Day @seriesName',
+                data: [@string.Join(",", series2.ToArray())]
+            }]
+        });
+        $(".datepicker").datepicker();
+
+    });
+</script>
+    </head>
+    <body>
+        @Html.ValidationSummary()
+        <form method="get">
+            <label for="Graph">Report</label>
+            <select name="Graph" onchange="submit()">
+                <option value="LWA" @lwaSelected>LWA</option>
+                <option value="MaxSMP" @MaxSMPSelected>MaxSMP</option>
+                <option value="MinSMP" @MinSMPSelected>MinSMP</option>
+            </select><br />
+
+            <label for="fromDate">Date From: </label>
+            <input type="Date" class="datepicker" name="fromDate" value="@fromDate"/>
+            <label for="toDate">Date To:</label>
+            <input type="date" class="datepicker" name="toDate" value="@toDate" />
+            <input type="submit" name="Submit" value="Submit" />
+
+        </form>
+        <div id="container" style="width:100%; height:400px;"></div>
+    </body>
+</html>
